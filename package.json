@@ -1,0 +1,16 @@
+{
+  "name": "effector-chain-api",
+  "version": "0.0.1",
+  "main": "src/index.ts",
+  "type": "module",
+  "dependencies": {
+    "effector": "^23.2.0",
+    "nanoid": "^5.0.7"
+  },
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0"
+  }
+}
