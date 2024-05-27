@@ -30,6 +30,29 @@ test("works with mapWith", async () => {
   expect(scope.getState($target)).toEqual("aaa");
 });
 
+test("works with mapWith with multiple units", async () => {
+  const userAddressChanged = createEvent<string>();
+  const $userName = createStore<string>("Bob");
+  const $UserLastName = createStore<string>("Doe");
+  const $userInfo = createStore<string>("");
+
+  link(
+    userAddressChanged,
+    (o) =>
+      o.mapWith(
+        [$userName, $UserLastName],
+        ([name, lastName], address) => `${name} ${lastName}, ${address}`,
+      ),
+    $userInfo,
+  );
+
+  const scope = fork();
+
+  await allSettled(userAddressChanged, { scope, params: "world" });
+
+  expect(scope.getState($userInfo)).toEqual("Bob Doe, world");
+});
+
 test("works with filter", async () => {
   const event = createEvent<number>();
   const $target = createStore<number>(0);
@@ -84,7 +107,7 @@ test("works with and", async () => {
   link(
     returnStatusCode,
     (o) => o.filter((v) => v === 200).and($content),
-    $target
+    $target,
   );
 
   const scope = fork();
@@ -149,11 +172,11 @@ test("works in chain", async () => {
       o
         .filterWith($isAdmin, (isAdmin) => isAdmin)
         .mapWith($users, (users, userId) =>
-          users.find((user) => user.id === userId)
+          users.find((user) => user.id === userId),
         )
         .filter((user): user is User => !!user)
         .map((user) => user.address),
-    $target
+    $target,
   );
 
   link(setIsAdmin, (o) => o.map((v) => v), $isAdmin);

@@ -1,4 +1,4 @@
-import { Unit, UnitTargetable, createEvent, sample } from "effector";
+import { Unit, UnitTargetable, UnitValue, createEvent, sample } from "effector";
 import { nanoid } from "nanoid";
 
 type Sources = { [key: string]: Unit<any> };
@@ -6,6 +6,10 @@ type SourceVals = { [key: string]: any };
 
 const None = Symbol("none");
 type None = typeof None;
+type MapUnits<T extends Unit<any> | ReadonlyArray<Unit<any>>> =
+  T extends ReadonlyArray<any>
+    ? { [K in keyof T]: UnitValue<T[K]> }
+    : UnitValue<T>;
 
 class Option<T> {
   _sources: Sources;
@@ -30,17 +34,36 @@ class Option<T> {
     );
   }
 
-  mapWith<U, R>(unit: Unit<U>, fn: (unit: U, value: T) => R): Option<R> {
-    const uid = nanoid();
+  mapWith<const U extends Unit<any> | ReadonlyArray<Unit<any>>, R>(
+    units: U,
+    fn: (units: MapUnits<U>, value: T) => R,
+  ): Option<R> {
+    const newUnits = { ...this._sources };
 
-    return new Option<R>(
-      { ...this._sources, [uid]: unit },
-      (sourceData, value) => {
-        const prev = this._fn(sourceData, value);
+    const isArray = Array.isArray(units);
 
-        return prev === None ? None : fn(sourceData[uid], prev);
-      },
-    );
+    const unitsArr: ReadonlyArray<Unit<any>> = isArray ? units : [units];
+
+    const ids: string[] = [];
+
+    for (const unit of unitsArr) {
+      const id = nanoid();
+
+      ids.push(id);
+
+      newUnits[id] = unit;
+    }
+
+    return new Option<R>(newUnits, (sourceData, value) => {
+      const prev = this._fn(sourceData, value);
+
+      return prev === None
+        ? None
+        : fn(
+            isArray ? ids.map((id) => sourceData[id]) : sourceData[ids[0]],
+            prev,
+          );
+    });
   }
 
   filter<R extends T>(fn: (value: T) => value is R): Option<R>;
