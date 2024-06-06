@@ -107,27 +107,35 @@ class Option<T> {
   }
 }
 
-export function link<T, R>(
-  units: Unit<T> | Unit<T>[],
-  fn: (option: Option<NoInfer<T>>) => Option<NoInfer<R>>,
-  target: UnitTargetable<R> | UnitTargetable<R>[],
-) {
-  const option = fn(new Option<T>({}, (sourceData, value) => value));
+type From<T> = Unit<T> | Unit<T>[];
+type Target<T> = UnitTargetable<T> | UnitTargetable<T>[];
 
-  const ev = createEvent<R | None>();
+export function link<T>(units: From<T>, target: Target<T>): void;
+export function link<T, R>(
+  units: From<T>,
+  fn: (option: Option<NoInfer<T>>) => Option<NoInfer<R>>,
+  target: Target<R>,
+): void;
+
+export function link(units: any, fnOrTarget: any, optionalTarget?: any): void {
+  const fn = typeof fnOrTarget === "function" ? fnOrTarget : (v: any) => v;
+  const target = typeof fnOrTarget === "function" ? optionalTarget : fnOrTarget;
+
+  const option = fn(new Option({}, (sourceData, value) => value));
+
+  const ev = createEvent();
 
   sample({
     // @ts-expect-error
     clock: units,
     source: option._sources,
-    fn: (sourceData: any, clockData: T) => option._fn(sourceData, clockData),
+    fn: (sourceData: any, clockData: any) => option._fn(sourceData, clockData),
     target: ev,
   });
 
-  // @ts-expect-error
   sample({
     source: ev,
-    filter: (v: any): v is R => v !== None,
+    filter: (v: any) => v !== None,
     target,
   });
 }

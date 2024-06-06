@@ -3,6 +3,19 @@ import { expect, test } from "vitest";
 
 import { link } from "./link.js";
 
+test("pass clock data to target", async () => {
+  const event = createEvent<number>();
+  const $store = createStore<number | null>(null);
+
+  link(event, $store);
+
+  const scope = fork();
+
+  await allSettled(event, { scope, params: 5 });
+
+  expect(scope.getState($store)).toEqual(5);
+});
+
 test("works with map", async () => {
   const event = createEvent<number>();
   const $target = createStore<string>("");
