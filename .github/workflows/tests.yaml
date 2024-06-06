@@ -6,8 +6,6 @@ on:
       - main
 
   pull_request:
-    paths:
-      - "./src/**/*"
 
 jobs:
   build:
