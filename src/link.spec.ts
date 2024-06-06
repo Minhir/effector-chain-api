@@ -3,6 +3,47 @@ import { expect, test } from "vitest";
 
 import { link } from "./link.js";
 
+test("accept shape of stores in mapWith", async () => {
+  const event = createEvent<number>();
+  const $store = createStore<number>(12);
+  const $target = createStore<number>(0);
+
+  link(
+    event,
+    (o) => o.mapWith({ store: $store }, ({ store }, v) => store + v),
+    $target,
+  );
+
+  const scope = fork();
+
+  await allSettled(event, { scope, params: 5 });
+
+  expect(scope.getState($target)).toEqual(12 + 5);
+});
+
+test("accept shape of stores in filterWith", async () => {
+  const event = createEvent<number>();
+  const $store = createStore<number>(0);
+  const $target = createStore<number>(0);
+
+  link(
+    event,
+    (o) => o.filterWith({ store: $store }, ({ store }, v) => store > 0),
+    $target,
+  );
+
+  const scope = fork();
+
+  // Skip because of the filter
+  await allSettled(event, { scope, params: 5 });
+  expect(scope.getState($target)).toEqual(0);
+
+  // Works because of the filter
+  await allSettled($store, { scope, params: 1 });
+  await allSettled(event, { scope, params: 5 });
+  expect(scope.getState($target)).toEqual(5);
+});
+
 test("pass clock data to target", async () => {
   const event = createEvent<number>();
   const $store = createStore<number | null>(null);
