@@ -1,7 +1,7 @@
 import { allSettled, createEvent, createStore, fork } from "effector";
 import { expect, test } from "vitest";
 
-import { link } from "./link";
+import { link } from "./link.js";
 
 test("works with map", async () => {
   const event = createEvent<number>();
