@@ -7,7 +7,6 @@ import {
   is,
   sample,
 } from "effector";
-import { nanoid } from "nanoid";
 
 type Sources = { [key: string]: Unit<any> };
 type SourceVals = { [key: string]: any };
@@ -69,7 +68,7 @@ class Option<T> {
     const ids: string[] = [];
 
     for (const unit of unitsArr) {
-      const id = nanoid();
+      const id = unitId(unit);
 
       ids.push(id);
 
@@ -111,31 +110,28 @@ class Option<T> {
       | Readonly<Record<string, Unit<any>>>,
     R extends T,
   >(unit: U, fn: (unit: MapUnits<U>, value: T) => value is R): Option<R> {
-    const uid = nanoid();
+    const unitNormalized: Unit<unknown> = is.unit(unit) ? unit : combine(unit);
 
-    const unitNormalized = is.unit(unit) ? unit : combine(unit);
+    const id = unitId(unitNormalized);
 
     return new Option(
-      { ...this._sources, [uid]: unitNormalized },
+      { ...this._sources, [id]: unitNormalized },
       (sourceData, value) => {
         const prev = this._fn(sourceData, value);
 
-        return prev === None || !fn(sourceData[uid], prev) ? None : prev;
+        return prev === None || !fn(sourceData[id], prev) ? None : prev;
       },
     );
   }
 
   and<U>(unit: Unit<U>): Option<U> {
-    const uid = nanoid();
+    const id = unitId(unit);
 
-    return new Option(
-      { ...this._sources, [uid]: unit },
-      (sourceData, value) => {
-        const prev = this._fn(sourceData, value);
+    return new Option({ ...this._sources, [id]: unit }, (sourceData, value) => {
+      const prev = this._fn(sourceData, value);
 
-        return prev === None ? None : sourceData[uid];
-      },
-    );
+      return prev === None ? None : sourceData[id];
+    });
   }
 }
 
@@ -176,4 +172,9 @@ export function link(units: any, fnOrTarget: any, optionalTarget?: any): void {
     filter: (v: any) => v !== None,
     target,
   });
+}
+
+function unitId(unit: Unit<unknown>): string {
+  // @ts-expect-error This is not public API 😇
+  return unit.graphite.id;
 }
