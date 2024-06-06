@@ -1,7 +1,7 @@
 import { allSettled, createEvent, createStore, fork } from "effector";
 import { expect, test } from "vitest";
 
-import { link } from "./link.js";
+import { link, pipe } from "./link.js";
 
 test("accept shape of stores in mapWith", async () => {
   const event = createEvent<number>();
@@ -151,6 +151,40 @@ test("works with filterWith", async () => {
   await allSettled(event, { scope, params: 7 });
 
   expect(scope.getState($target)).toEqual(7);
+});
+
+test("works with pipe", async () => {
+  const provideAge = createEvent<number>();
+  const $hasAccess = createStore<boolean>(false);
+
+  link(
+    provideAge,
+    pipe<number>().map((v) => v >= 18),
+    $hasAccess,
+  );
+
+  const scope = fork();
+
+  await allSettled(provideAge, { scope, params: 17 });
+
+  expect(scope.getState($hasAccess)).toEqual(false);
+
+  await allSettled(provideAge, { scope, params: 97 });
+
+  expect(scope.getState($hasAccess)).toEqual(true);
+});
+
+test("default pipe works like identity function", async () => {
+  const event = createEvent<number>();
+  const $target = createStore<number>(0);
+
+  link(event, pipe<number>(), $target);
+
+  const scope = fork();
+
+  await allSettled(event, { scope, params: 42 });
+
+  expect(scope.getState($target)).toEqual(42);
 });
 
 test("works with and", async () => {
