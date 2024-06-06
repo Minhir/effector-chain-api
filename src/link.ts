@@ -1,4 +1,12 @@
-import { Unit, UnitTargetable, UnitValue, createEvent, sample } from "effector";
+import {
+  Unit,
+  UnitTargetable,
+  UnitValue,
+  combine,
+  createEvent,
+  is,
+  sample,
+} from "effector";
 import { nanoid } from "nanoid";
 
 type Sources = { [key: string]: Unit<any> };
@@ -6,10 +14,17 @@ type SourceVals = { [key: string]: any };
 
 const None = Symbol("none");
 type None = typeof None;
-type MapUnits<T extends Unit<any> | ReadonlyArray<Unit<any>>> =
+type MapUnits<
+  T extends
+    | Unit<any>
+    | ReadonlyArray<Unit<any>>
+    | Readonly<Record<string, Unit<any>>>,
+> =
   T extends ReadonlyArray<any>
     ? { [K in keyof T]: UnitValue<T[K]> }
-    : UnitValue<T>;
+    : T extends Unit<any>
+      ? UnitValue<T>
+      : { [K in keyof T]: UnitValue<T[K]> };
 
 class Option<T> {
   _sources: Sources;
@@ -34,15 +49,22 @@ class Option<T> {
     );
   }
 
-  mapWith<const U extends Unit<any> | ReadonlyArray<Unit<any>>, R>(
-    units: U,
-    fn: (units: MapUnits<U>, value: T) => R,
-  ): Option<R> {
+  mapWith<
+    const U extends
+      | Unit<any>
+      | ReadonlyArray<Unit<any>>
+      | Readonly<Record<string, Unit<any>>>,
+    R,
+  >(units: U, fn: (units: MapUnits<U>, value: T) => R): Option<R> {
     const newUnits = { ...this._sources };
 
     const isArray = Array.isArray(units);
 
-    const unitsArr: ReadonlyArray<Unit<any>> = isArray ? units : [units];
+    const unitsArr: ReadonlyArray<Unit<any>> = isArray
+      ? units
+      : is.unit(units)
+        ? [units]
+        : [combine(units)];
 
     const ids: string[] = [];
 
@@ -76,15 +98,25 @@ class Option<T> {
     });
   }
 
-  filterWith<U>(unit: Unit<U>, fn: (unit: U, value: T) => boolean): Option<T>;
-  filterWith<U, R extends T>(
-    unit: Unit<U>,
-    fn: (unit: U, value: T) => value is R,
-  ): Option<R> {
+  filterWith<
+    const U extends
+      | Unit<any>
+      | ReadonlyArray<Unit<any>>
+      | Readonly<Record<string, Unit<any>>>,
+  >(unit: U, fn: (unit: MapUnits<U>, value: T) => boolean): Option<T>;
+  filterWith<
+    const U extends
+      | Unit<any>
+      | ReadonlyArray<Unit<any>>
+      | Readonly<Record<string, Unit<any>>>,
+    R extends T,
+  >(unit: U, fn: (unit: MapUnits<U>, value: T) => value is R): Option<R> {
     const uid = nanoid();
 
+    const unitNormalized = is.unit(unit) ? unit : combine(unit);
+
     return new Option(
-      { ...this._sources, [uid]: unit },
+      { ...this._sources, [uid]: unitNormalized },
       (sourceData, value) => {
         const prev = this._fn(sourceData, value);
 
