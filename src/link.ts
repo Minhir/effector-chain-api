@@ -55,36 +55,20 @@ class Option<T> {
       | Readonly<Record<string, Unit<any>>>,
     R,
   >(units: U, fn: (units: MapUnits<U>, value: T) => R): Option<R> {
-    const newUnits = { ...this._sources };
-
-    const isArray = Array.isArray(units);
-
-    const unitsArr: ReadonlyArray<Unit<any>> = isArray
+    const unitNormalized: Unit<unknown> = is.unit(units)
       ? units
-      : is.unit(units)
-        ? [units]
-        : [combine(units)];
+      : combine(units);
 
-    const ids: string[] = [];
+    const id = unitId(unitNormalized);
 
-    for (const unit of unitsArr) {
-      const id = unitId(unit);
+    return new Option<R>(
+      { ...this._sources, [id]: unitNormalized },
+      (sourceData, value) => {
+        const prev = this._fn(sourceData, value);
 
-      ids.push(id);
-
-      newUnits[id] = unit;
-    }
-
-    return new Option<R>(newUnits, (sourceData, value) => {
-      const prev = this._fn(sourceData, value);
-
-      return prev === None
-        ? None
-        : fn(
-            isArray ? ids.map((id) => sourceData[id]) : sourceData[ids[0]],
-            prev,
-          );
-    });
+        return prev === None ? None : fn(sourceData[id], prev);
+      },
+    );
   }
 
   filter<R extends T>(fn: (value: T) => value is R): Option<R>;
