@@ -111,10 +111,16 @@ type From<T> = Unit<T> | Unit<T>[];
 type Target<T> = UnitTargetable<T> | UnitTargetable<T>[];
 
 export function link<T>(units: From<T>, target: Target<T>): void;
+export function link<T>(units: From<any>, target: Target<void>): void;
 export function link<T, R>(
   units: From<T>,
   fn: (option: Option<NoInfer<T>>) => Option<NoInfer<R>>,
   target: Target<R>,
+): void;
+export function link<T, R>(
+  units: From<T>,
+  fn: (option: Option<NoInfer<T>>) => Option<NoInfer<any>>,
+  target: Target<void>,
 ): void;
 
 export function link(units: any, fnOrTarget: any, optionalTarget?: any): void {
