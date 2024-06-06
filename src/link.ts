@@ -26,20 +26,23 @@ type MapUnits<
       ? UnitValue<T>
       : { [K in keyof T]: UnitValue<T[K]> };
 
-class Option<T> {
+class Pipe<In, Out> {
+  __in!: In;
+  __out!: Out;
+
   _sources: Sources;
-  _fn: (sourceData: SourceVals, value: any) => T | None;
+  _fn: (sourceData: SourceVals, value: any) => Out | None;
 
   constructor(
     sources: Sources,
-    fn: (sourceData: SourceVals, value: any) => T | None,
+    fn: (sourceData: SourceVals, value: any) => Out | None,
   ) {
     this._sources = sources;
     this._fn = fn;
   }
 
-  map<R>(fn: (value: T) => R): Option<R> {
-    return new Option<R>(
+  map<R>(fn: (value: Out) => R): Pipe<In, R> {
+    return new Pipe<In, R>(
       this._sources,
 
       (sourceData, value) => {
@@ -55,14 +58,14 @@ class Option<T> {
       | ReadonlyArray<Unit<any>>
       | Readonly<Record<string, Unit<any>>>,
     R,
-  >(units: U, fn: (units: MapUnits<U>, value: T) => R): Option<R> {
+  >(units: U, fn: (units: MapUnits<U>, value: Out) => R): Pipe<In, R> {
     const unitNormalized: Unit<unknown> = is.unit(units)
       ? units
       : combine(units);
 
     const id = unitId(unitNormalized);
 
-    return new Option<R>(
+    return new Pipe<In, R>(
       { ...this._sources, [id]: unitNormalized },
       (sourceData, value) => {
         const prev = this._fn(sourceData, value);
@@ -72,10 +75,10 @@ class Option<T> {
     );
   }
 
-  filter<R extends T>(fn: (value: T) => value is R): Option<R>;
-  filter(fn: (value: T) => boolean): Option<T>;
-  filter(fn: (value: T) => boolean) {
-    return new Option(this._sources, (sourceData, value) => {
+  filter<R extends Out>(fn: (value: Out) => value is R): Pipe<In, R>;
+  filter(fn: (value: Out) => boolean): Pipe<In, Out>;
+  filter(fn: (value: Out) => boolean) {
+    return new Pipe(this._sources, (sourceData, value) => {
       const prev = this._fn(sourceData, value);
 
       return prev === None || !fn(prev) ? None : prev;
@@ -87,19 +90,19 @@ class Option<T> {
       | Unit<any>
       | ReadonlyArray<Unit<any>>
       | Readonly<Record<string, Unit<any>>>,
-  >(unit: U, fn: (unit: MapUnits<U>, value: T) => boolean): Option<T>;
+  >(unit: U, fn: (unit: MapUnits<U>, value: Out) => boolean): Pipe<In, Out>;
   filterWith<
     const U extends
       | Unit<any>
       | ReadonlyArray<Unit<any>>
       | Readonly<Record<string, Unit<any>>>,
-    R extends T,
-  >(unit: U, fn: (unit: MapUnits<U>, value: T) => value is R): Option<R> {
+    R extends Out,
+  >(unit: U, fn: (unit: MapUnits<U>, value: Out) => value is R): Pipe<In, R> {
     const unitNormalized: Unit<unknown> = is.unit(unit) ? unit : combine(unit);
 
     const id = unitId(unitNormalized);
 
-    return new Option(
+    return new Pipe(
       { ...this._sources, [id]: unitNormalized },
       (sourceData, value) => {
         const prev = this._fn(sourceData, value);
@@ -109,10 +112,10 @@ class Option<T> {
     );
   }
 
-  and<U>(unit: Unit<U>): Option<U> {
+  and<U>(unit: Unit<U>): Pipe<In, U> {
     const id = unitId(unit);
 
-    return new Option({ ...this._sources, [id]: unit }, (sourceData, value) => {
+    return new Pipe({ ...this._sources, [id]: unit }, (sourceData, value) => {
       const prev = this._fn(sourceData, value);
 
       return prev === None ? None : sourceData[id];
@@ -127,29 +130,37 @@ export function link<T>(units: From<T>, target: Target<T>): void;
 export function link<T>(units: From<any>, target: Target<void>): void;
 export function link<T, R>(
   units: From<T>,
-  fn: (option: Option<NoInfer<T>>) => Option<NoInfer<R>>,
+  fn: Pipe<T, R> | ((pipe: Pipe<T, T>) => Pipe<T, NoInfer<R>>),
   target: Target<R>,
 ): void;
 export function link<T, R>(
   units: From<T>,
-  fn: (option: Option<NoInfer<T>>) => Option<NoInfer<any>>,
+  fn: ((pipe: Pipe<T, T>) => Pipe<NoInfer<T>, any>) | Pipe<NoInfer<T>, any>,
   target: Target<void>,
 ): void;
 export function link<T, R>(
   units: From<T>,
-  fn: (option: Option<NoInfer<T>>) => Option<R>,
+  fn: (pipe: Pipe<T, NoInfer<T>>) => Pipe<T, R>,
 ): Event<R>;
+export function link(
+  units: any,
+  fnOrPipeOrTarget: any,
+  optionalTarget?: any,
+): any {
+  const fn: Function =
+    typeof fnOrPipeOrTarget === "function" ? fnOrPipeOrTarget : (v: any) => v;
 
-export function link(units: any, fnOrTarget: any, optionalTarget?: any): any {
-  const fn = typeof fnOrTarget === "function" ? fnOrTarget : (v: any) => v;
+  const noTarget = !optionalTarget && !is.unit(fnOrPipeOrTarget);
+  const target = noTarget
+    ? createEvent()
+    : is.unit(fnOrPipeOrTarget)
+      ? fnOrPipeOrTarget
+      : optionalTarget;
 
-  const rawTarget =
-    typeof fnOrTarget === "function" ? optionalTarget : fnOrTarget;
-  const noTarget = !rawTarget;
-
-  const target = noTarget ? createEvent() : rawTarget;
-
-  const option = fn(new Option({}, (sourceData, value) => value));
+  const option =
+    fnOrPipeOrTarget instanceof Pipe
+      ? fnOrPipeOrTarget
+      : fn(new Pipe({}, (sourceData, value) => value));
 
   const ev = createEvent();
 
@@ -175,4 +186,8 @@ export function link(units: any, fnOrTarget: any, optionalTarget?: any): any {
 function unitId(unit: Unit<unknown>): string {
   // @ts-expect-error This is not public API 😇
   return unit.graphite.id;
+}
+
+export function pipe<In>(): Pipe<In, In> {
+  return new Pipe({}, (_, value) => value);
 }
