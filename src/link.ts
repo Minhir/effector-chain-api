@@ -25,18 +25,6 @@ type MapUnits<
       ? UnitValue<T>
       : { [K in keyof T]: UnitValue<T[K]> };
 
-type Narrowable = string | number | bigint | boolean;
-
-type Exact<A, W> = W extends unknown
-  ? A extends W
-    ? A extends Narrowable
-      ? A
-      : {
-          [K in keyof A]: K extends keyof W ? Exact<A[K], W[K]> : never;
-        }
-    : W
-  : never;
-
 class Pipe<In, Out> {
   __in!: In;
   __out!: Out;
@@ -52,8 +40,8 @@ class Pipe<In, Out> {
     this._fn = fn;
   }
 
-  map<T extends In, R>(fn: (value: Exact<T, In>) => R): Pipe<Exact<T, In>, R> {
-    return new Pipe<Exact<T, In>, R>(
+  map<T extends In, R>(fn: (value: T) => R): Pipe<T, R> {
+    return new Pipe<T, R>(
       this._sources,
 
       (sourceData, value) => {
@@ -87,9 +75,11 @@ class Pipe<In, Out> {
   //   );
   // }
 
-  filter<T extends In, R extends Out>(fn: (value: Out) => value is R): Pipe<T, R>;
-  filter<T extends In>(fn: (value: Out) => boolean): Pipe<T, Out>;
-  filter(fn: (value: Out) => boolean) {
+  filter<T extends In, R extends T, Out>(
+    fn: (value: T) => value is R,
+  ): Pipe<T, R>;
+  filter<T extends In>(fn: (value: T) => boolean): Pipe<T, Out>;
+  filter(fn: (value: any) => boolean) {
     return new Pipe(this._sources, (sourceData, value) => {
       const prev = this._fn(sourceData, value);
 
@@ -137,8 +127,6 @@ class Pipe<In, Out> {
 
 type From<T> = Unit<T> | Unit<T>[];
 type Target<T> = UnitTargetable<T> | UnitTargetable<T>[];
-
-type MyNoInfer<A extends any> = [A][A extends any ? 0 : never];
 
 // export function link<T>(units: From<T>, target: Target<T>): void;
 // export function link<T>(units: From<any>, target: Target<void>): void;
