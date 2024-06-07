@@ -1,5 +1,5 @@
 import { createEvent } from "effector";
-import { test } from "vitest";
+import { expectTypeOf, test } from "vitest";
 
 import { link, pipe } from "./link.js";
 
@@ -31,6 +31,15 @@ test("pipe should satisfy both from and target types", async () => {
   link(
     from,
     pipe<number>().map(() => true),
+    to,
+  );
+
+  link(
+    from,
+    pipe<number>().map((v) => {
+      expectTypeOf(v).toEqualTypeOf<number>();
+      return true;
+    }),
     to,
   );
 });
