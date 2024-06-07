@@ -23,8 +23,15 @@ test("pipe should satisfy both from and target types", async () => {
 
   link(
     from,
-    // @ts-expect-error
+    // @ts-expect-error because pipe accepts string
     pipe<string>().map(() => true),
+    to,
+  );
+
+  link(
+    from,
+    pipe().map(() => 12),
+    // @ts-expect-error because pipe returns number
     to,
   );
 
