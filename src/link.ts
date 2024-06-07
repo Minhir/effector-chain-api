@@ -2,6 +2,7 @@ import {
   Unit,
   UnitTargetable,
   UnitValue,
+  Event,
   combine,
   createEvent,
   is,
@@ -134,10 +135,19 @@ export function link<T, R>(
   fn: (option: Option<NoInfer<T>>) => Option<NoInfer<any>>,
   target: Target<void>,
 ): void;
+export function link<T, R>(
+  units: From<T>,
+  fn: (option: Option<NoInfer<T>>) => Option<R>,
+): Event<R>;
 
-export function link(units: any, fnOrTarget: any, optionalTarget?: any): void {
+export function link(units: any, fnOrTarget: any, optionalTarget?: any): any {
   const fn = typeof fnOrTarget === "function" ? fnOrTarget : (v: any) => v;
-  const target = typeof fnOrTarget === "function" ? optionalTarget : fnOrTarget;
+
+  const rawTarget =
+    typeof fnOrTarget === "function" ? optionalTarget : fnOrTarget;
+  const noTarget = !rawTarget;
+
+  const target = noTarget ? createEvent() : rawTarget;
 
   const option = fn(new Option({}, (sourceData, value) => value));
 
@@ -156,6 +166,10 @@ export function link(units: any, fnOrTarget: any, optionalTarget?: any): void {
     filter: (v: any) => v !== None,
     target,
   });
+
+  if (noTarget) {
+    return target;
+  }
 }
 
 function unitId(unit: Unit<unknown>): string {
