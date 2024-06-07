@@ -25,6 +25,18 @@ type MapUnits<
       ? UnitValue<T>
       : { [K in keyof T]: UnitValue<T[K]> };
 
+type Narrowable = string | number | bigint | boolean;
+
+type Exact<A, W> = W extends unknown
+  ? A extends W
+    ? A extends Narrowable
+      ? A
+      : {
+          [K in keyof A]: K extends keyof W ? Exact<A[K], W[K]> : never;
+        }
+    : W
+  : never;
+
 class Pipe<In, Out> {
   __in!: In;
   __out!: Out;
@@ -40,42 +52,43 @@ class Pipe<In, Out> {
     this._fn = fn;
   }
 
-  map<R>(fn: (value: Out) => R): Pipe<In, R> {
-    return new Pipe<In, R>(
+  map<T extends In, R>(fn: (value: Exact<T, In>) => R): Pipe<Exact<T, In>, R> {
+    return new Pipe<Exact<T, In>, R>(
       this._sources,
 
       (sourceData, value) => {
         const prev = this._fn(sourceData, value);
+        // @ts-expect-error Who cares 😇
         return prev === None ? None : fn(prev);
       },
     );
   }
 
-  mapWith<
-    const U extends
-      | Unit<any>
-      | ReadonlyArray<Unit<any>>
-      | Readonly<Record<string, Unit<any>>>,
-    R,
-  >(units: U, fn: (units: MapUnits<U>, value: Out) => R): Pipe<In, R> {
-    const unitNormalized: Unit<unknown> = is.unit(units)
-      ? units
-      : combine(units);
+  // mapWith<
+  //   const U extends
+  //     | Unit<any>
+  //     | ReadonlyArray<Unit<any>>
+  //     | Readonly<Record<string, Unit<any>>>,
+  //   R,
+  // >(units: U, fn: (units: MapUnits<U>, value: Out) => R): Pipe<In, R> {
+  //   const unitNormalized: Unit<unknown> = is.unit(units)
+  //     ? units
+  //     : combine(units);
 
-    const id = unitId(unitNormalized);
+  //   const id = unitId(unitNormalized);
 
-    return new Pipe<In, R>(
-      { ...this._sources, [id]: unitNormalized },
-      (sourceData, value) => {
-        const prev = this._fn(sourceData, value);
+  //   return new Pipe<In, R>(
+  //     { ...this._sources, [id]: unitNormalized },
+  //     (sourceData, value) => {
+  //       const prev = this._fn(sourceData, value);
 
-        return prev === None ? None : fn(sourceData[id], prev);
-      },
-    );
-  }
+  //       return prev === None ? None : fn(sourceData[id], prev);
+  //     },
+  //   );
+  // }
 
-  filter<R extends Out>(fn: (value: Out) => value is R): Pipe<In, R>;
-  filter(fn: (value: Out) => boolean): Pipe<In, Out>;
+  filter<T extends In, R extends Out>(fn: (value: Out) => value is R): Pipe<T, R>;
+  filter<T extends In>(fn: (value: Out) => boolean): Pipe<T, Out>;
   filter(fn: (value: Out) => boolean) {
     return new Pipe(this._sources, (sourceData, value) => {
       const prev = this._fn(sourceData, value);
@@ -84,59 +97,61 @@ class Pipe<In, Out> {
     });
   }
 
-  filterWith<
-    const U extends
-      | Unit<any>
-      | ReadonlyArray<Unit<any>>
-      | Readonly<Record<string, Unit<any>>>,
-  >(unit: U, fn: (unit: MapUnits<U>, value: Out) => boolean): Pipe<In, Out>;
-  filterWith<
-    const U extends
-      | Unit<any>
-      | ReadonlyArray<Unit<any>>
-      | Readonly<Record<string, Unit<any>>>,
-    R extends Out,
-  >(unit: U, fn: (unit: MapUnits<U>, value: Out) => value is R): Pipe<In, R> {
-    const unitNormalized: Unit<unknown> = is.unit(unit) ? unit : combine(unit);
+  // filterWith<
+  //   const U extends
+  //     | Unit<any>
+  //     | ReadonlyArray<Unit<any>>
+  //     | Readonly<Record<string, Unit<any>>>,
+  // >(unit: U, fn: (unit: MapUnits<U>, value: Out) => boolean): Pipe<In, Out>;
+  // filterWith<
+  //   const U extends
+  //     | Unit<any>
+  //     | ReadonlyArray<Unit<any>>
+  //     | Readonly<Record<string, Unit<any>>>,
+  //   R extends Out,
+  // >(unit: U, fn: (unit: MapUnits<U>, value: Out) => value is R): Pipe<In, R> {
+  //   const unitNormalized: Unit<unknown> = is.unit(unit) ? unit : combine(unit);
 
-    const id = unitId(unitNormalized);
+  //   const id = unitId(unitNormalized);
 
-    return new Pipe(
-      { ...this._sources, [id]: unitNormalized },
-      (sourceData, value) => {
-        const prev = this._fn(sourceData, value);
+  //   return new Pipe(
+  //     { ...this._sources, [id]: unitNormalized },
+  //     (sourceData, value) => {
+  //       const prev = this._fn(sourceData, value);
 
-        return prev === None || !fn(sourceData[id], prev) ? None : prev;
-      },
-    );
-  }
+  //       return prev === None || !fn(sourceData[id], prev) ? None : prev;
+  //     },
+  //   );
+  // }
 
-  and<U>(unit: Unit<U>): Pipe<In, U> {
-    const id = unitId(unit);
+  // and<U>(unit: Unit<U>): Pipe<In, U> {
+  //   const id = unitId(unit);
 
-    return new Pipe({ ...this._sources, [id]: unit }, (sourceData, value) => {
-      const prev = this._fn(sourceData, value);
+  //   return new Pipe({ ...this._sources, [id]: unit }, (sourceData, value) => {
+  //     const prev = this._fn(sourceData, value);
 
-      return prev === None ? None : sourceData[id];
-    });
-  }
+  //     return prev === None ? None : sourceData[id];
+  //   });
+  // }
 }
 
 type From<T> = Unit<T> | Unit<T>[];
 type Target<T> = UnitTargetable<T> | UnitTargetable<T>[];
 
-export function link<T>(units: From<T>, target: Target<T>): void;
-export function link<T>(units: From<any>, target: Target<void>): void;
+type MyNoInfer<A extends any> = [A][A extends any ? 0 : never];
+
+// export function link<T>(units: From<T>, target: Target<T>): void;
+// export function link<T>(units: From<any>, target: Target<void>): void;
 export function link<T, R>(
   units: From<T>,
-  fn: Pipe<T, R> | ((option: Pipe<T, T>) => Pipe<T, NoInfer<R>>),
+  fn: Pipe<NoInfer<T>, R>,
   target: Target<R>,
 ): void;
-export function link<T, R>(
-  units: From<T>,
-  fn: ((option: Pipe<T, T>) => Pipe<NoInfer<T>, any>) | Pipe<NoInfer<T>, any>,
-  target: Target<void>,
-): void;
+// export function link<T, R>(
+//   units: From<T>,
+//   fn: ((option: Pipe<T, T>) => Pipe<NoInfer<T>, any>) | Pipe<NoInfer<T>, any>,
+//   target: Target<void>,
+// ): void;
 
 export function link(
   units: any,
