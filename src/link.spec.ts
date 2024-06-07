@@ -1,5 +1,11 @@
-import { allSettled, createEvent, createStore, fork } from "effector";
-import { expect, test } from "vitest";
+import {
+  allSettled,
+  createEvent,
+  createStore,
+  createWatch,
+  fork,
+} from "effector";
+import { expect, test, vi } from "vitest";
 
 import { link } from "./link.js";
 
@@ -256,4 +262,21 @@ test("works in chain", async () => {
   await allSettled(userAddressRequested, { scope, params: "alice" });
 
   expect(scope.getState($target)).toEqual("");
+});
+
+test("should return new unit in case of empty target", async () => {
+  const clock = createEvent<string>();
+
+  const target = link(clock, (p) => p.map((v) => parseInt(v, 10)));
+
+  const scope = fork();
+
+  const listen = vi.fn();
+
+  createWatch({ unit: target, scope, fn: listen });
+
+  await allSettled(clock, { scope, params: "12" });
+
+  expect(listen).toHaveBeenCalledWith(12);
+  expect(listen).toHaveBeenCalledOnce();
 });
