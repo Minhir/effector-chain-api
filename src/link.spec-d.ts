@@ -41,4 +41,13 @@ test("pipe should satisfy both from and target types", async () => {
     pipe<number>().map(() => true),
     to,
   );
+
+  link(
+    from,
+    pipe<number>().map((v) => {
+      expectTypeOf(v).toEqualTypeOf<number>();
+      return true;
+    }),
+    to,
+  );
 });
