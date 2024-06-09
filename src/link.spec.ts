@@ -314,3 +314,23 @@ test("should return new unit in case of empty target", async () => {
   expect(listen).toHaveBeenCalledWith(12);
   expect(listen).toHaveBeenCalledOnce();
 });
+
+test("should return new unit in case of empty target with pipe", async () => {
+  const clock = createEvent<string>();
+
+  const target = link(
+    clock,
+    pipe<string>().map((v) => parseInt(v, 10)),
+  );
+
+  const scope = fork();
+
+  const listen = vi.fn();
+
+  createWatch({ unit: target, scope, fn: listen });
+
+  await allSettled(clock, { scope, params: "12" });
+
+  expect(listen).toHaveBeenCalledWith(12);
+  expect(listen).toHaveBeenCalledOnce();
+});
