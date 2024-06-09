@@ -140,45 +140,49 @@ export function link<T, R>(
 ): void;
 export function link<T, R>(
   units: From<T>,
-  fn: (pipe: Pipe<T, NoInfer<T>>) => Pipe<T, R>,
+  fn: ((pipe: Pipe<T, NoInfer<T>>) => Pipe<T, R>) | Pipe<T, R>,
 ): Event<R>;
 export function link(
-  units: any,
-  fnOrPipeOrTarget: any,
-  optionalTarget?: any,
+  units: From<any>,
+  fnOrPipeOrTarget:
+    | ((pipe: Pipe<any, any>) => Pipe<any, any>)
+    | Pipe<any, any>
+    | Target<any>,
+  optionalTarget?: Target<any>,
 ): any {
-  const fn: Function =
+  const fn =
     typeof fnOrPipeOrTarget === "function" ? fnOrPipeOrTarget : (v: any) => v;
 
-  const noTarget = !optionalTarget && !is.unit(fnOrPipeOrTarget);
-  const target = noTarget
-    ? createEvent()
+  const providedTarget = optionalTarget
+    ? optionalTarget
     : is.unit(fnOrPipeOrTarget)
       ? fnOrPipeOrTarget
-      : optionalTarget;
+      : null;
 
-  const option =
+  const target = providedTarget ?? createEvent();
+  const ev = createEvent<any>();
+
+  const pipe =
     fnOrPipeOrTarget instanceof Pipe
       ? fnOrPipeOrTarget
       : fn(new Pipe({}, (sourceData, value) => value));
 
-  const ev = createEvent();
-
+  // @ts-expect-error
   sample({
-    // @ts-expect-error
     clock: units,
-    source: option._sources,
-    fn: (sourceData: any, clockData: any) => option._fn(sourceData, clockData),
+    source: pipe._sources,
+    fn: (sourceData: any, clockData: any) => pipe._fn(sourceData, clockData),
     target: ev,
   });
 
+  // @ts-expect-error
   sample({
     source: ev,
     filter: (v: any) => v !== None,
     target,
   });
 
-  if (noTarget) {
+  if (!providedTarget) {
     return target;
   }
 }

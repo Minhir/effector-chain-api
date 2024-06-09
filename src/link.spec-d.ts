@@ -31,14 +31,12 @@ test("pipe should satisfy both from and target types", async () => {
 
   link(
     from,
-    // @ts-expect-error
-    pipe<string>().map(() => true),
-    to,
-  );
+    // @ts-expect-error because pipe accepts string
+    pipe<string>().map((v) => {
+      expectTypeOf(v).toEqualTypeOf<string>();
 
-  link(
-    from,
-    pipe<number>().map(() => true),
+      return true;
+    }),
     to,
   );
 
@@ -46,8 +44,36 @@ test("pipe should satisfy both from and target types", async () => {
     from,
     pipe<number>().map((v) => {
       expectTypeOf(v).toEqualTypeOf<number>();
+
+      return 12;
+    }),
+    // @ts-expect-error because pipe returns number
+    to,
+  );
+
+  link(
+    from,
+    pipe<number>().map((v) => {
+      expectTypeOf(v).toEqualTypeOf<number>();
+
       return true;
     }),
+    to,
+  );
+
+  link(
+    from,
+    pipe<number>()
+      .filter((v) => {
+        expectTypeOf(v).toEqualTypeOf<number>();
+
+        return true;
+      })
+      .map((v) => {
+        expectTypeOf(v).toEqualTypeOf<number>();
+
+        return true;
+      }),
     to,
   );
 });
